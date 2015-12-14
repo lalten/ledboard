@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <projectDescription>
-	<name>LED_CalibrationBoard_10x8_Rev2</name>
+	<name>LED_CalibrationBoard_10x8_EDVSCALIB</name>
 	<comment></comment>
 	<projects>
 		<project>CMSISv2p00_LPC17xx</project>
