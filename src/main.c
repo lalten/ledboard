@@ -3,6 +3,7 @@
 
 #include <cr_section_macros.h>
 #include <NXP/crp.h>
+#include <string.h> //memset
 
 
 #define MICROSECONDS_TICK					100				// iterate every 100us
@@ -10,17 +11,21 @@
 //#define POWERUP_DELAY_BETWEEN_LED_BLINK		1000			// time in ms
 #define POWERUP_DELAY_BETWEEN_LED_BLINK		5			// time in ms
 
+static const uint32_t shift_time = 5000; // time in 100us to display one pattern before shifting it on the board
+static const uint32_t shift_r = 5; // amount of columns to shift over (pattern is wrapped)
+static const uint32_t shift_c = 6; // amount of rows to shift over (pattern is wrapped)
+
 
 // *************************************************************************************************************************************
 long static timeON_100US[8][10] = {
 		{0,    0,    0,    0,    0,    0,    0,    0,    0,    0},
 		{0,    0,    0,    0,    0,    0,    0,    0,    0,    0},
-		{0,    0,    0,   10,   10,   10,    0,    0,    0,    0},
-		{0,    0,    0,   10,   10,   10,    0,    0,    0,    0},
-		{0,    0,    0,   10,   10,   10,    0,    0,    0,    0},
-		{0,    0,    0,   10,   10,   10,    0,    0,    0,    0},
 		{0,    0,    0,    0,    0,    0,    0,    0,    0,    0},
 		{0,    0,    0,    0,    0,    0,    0,    0,    0,    0},
+		{0,    0,    0,    0,    0,    0,    0,    0,    0,    0},
+		{0,    0,    0,    0,    0,    0,   10,   10,   10,   10},
+		{0,    0,    0,    0,    0,    0,   10,   10,   10,   10},
+		{0,    0,    0,    0,    0,    0,   10,   10,   10,   10}
 };
 
 
@@ -28,12 +33,12 @@ long static timeON_100US[8][10] = {
 long static timeOFF_100US[8][10] = {
 		{0,    0,    0,    0,    0,    0,    0,    0,    0,    0},
 		{0,    0,    0,    0,    0,    0,    0,    0,    0,    0},
-		{0,    0,    0,   10,   10,   10,    0,    0,    0,    0},
-		{0,    0,    0,   10,   10,   10,    0,    0,    0,    0},
-		{0,    0,    0,   10,   10,   10,    0,    0,    0,    0},
-		{0,    0,    0,   10,   10,   10,    0,    0,    0,    0},
 		{0,    0,    0,    0,    0,    0,    0,    0,    0,    0},
 		{0,    0,    0,    0,    0,    0,    0,    0,    0,    0},
+		{0,    0,    0,    0,    0,    0,    0,    0,    0,    0},
+		{0,    0,    0,    0,    0,    0,   10,   10,   10,   10},
+		{0,    0,    0,    0,    0,    0,   10,   10,   10,   10},
+		{0,    0,    0,    0,    0,    0,   10,   10,   10,   10}
 };
 
 
@@ -130,6 +135,10 @@ int main(void) {
 	uint32_t LPCLED_Count=1;				// counter for on-board debug LED
 	uint8_t TIM0_IR;						// read out timer for base frequency
 
+	uint32_t shift_timer = 0;
+	uint8_t current_shift_r=0;
+	uint8_t current_shift_c=0;
+
 
 	// *************************************************************************************************************************************
 	LPC_GPIO0->FIOCLR = LPCLED_PIN;			// Set P0 LPC_LED pin to default off
@@ -163,36 +172,73 @@ int main(void) {
 		LPC_TIM0->IR = 0x1; 									// Reset MR0 Interrupt
 
 
+		// Check if pattern needs shift
+		shift_timer ++;
+		if(shift_timer == shift_time) {
+			shift_timer = 0;
+			current_shift_r ++;
+			if(current_shift_r > shift_r) {
+				current_shift_r = 0;
+				current_shift_c ++;
+				if(current_shift_c > shift_c) {
+					current_shift_c = 0;
+				}
+			}
+		}
+
+
 		// *************************************************************************************************************************************
+
 		for (c=9; c>=0; c--) {
 			for (r=7; r>=0; r--) {
 
-				if (blinkCounter[r][c] == 0) {					// reached toggle value?
+				// reached toggle value?
+				if (blinkCounter[r][c] == 0) {
 					if (LEDState[r][c]) {
-						LEDState[r][c] = 0;							// set to off
-						blinkCounter[r][c] = timeOFF_100US[r][c];	// start with off-time
+						// set to off
+						LEDState[r][c] = 0;
+						// start with off-time
+						blinkCounter[r][c] = timeOFF_100US[r][c];
 					} else {
-						LEDState[r][c] = timeON_100US[r][c] ? 1 : 0;// set to on
-						blinkCounter[r][c] = timeON_100US[r][c];	// start with on-time
+						// set to on
+						LEDState[r][c] = timeON_100US[r][c] ? 1 : 0;
+						// start with on-time
+						blinkCounter[r][c] = timeON_100US[r][c];
 					}
 				}
 
-				blinkCounter[r][c]--;							// update LED state
+				// update LED state
+				blinkCounter[r][c]--;
+			}
+		}
 
+		for (c=9; c>=0; c--) {
+			for (r=7; r>=0; r--) {
 
-				if (LEDState[r][c]) {								// check current state of LED
-					LPC_GPIO2->FIOCLR = P2_DATA;					// set port to low
+				// compute shifted row, column
+				int32_t c_shift = c + current_shift_c;
+				int32_t r_shift = r + current_shift_r;
+				if(c_shift > 9) c_shift -= 10;
+				if(r_shift > 7) r_shift -= 8;
+
+				// check current state of LED
+				if (LEDState[r_shift][c_shift]) {
+					// set port to low
+					LPC_GPIO2->FIOCLR = P2_DATA;
 				} else {
-					LPC_GPIO2->FIOSET = P2_DATA;					// set port to high
+					// set port to high
+					LPC_GPIO2->FIOSET = P2_DATA;
 				}
 
-				LPC_GPIO2->FIOSET = P2_CLOCK;					// clock new data out
+				// clock new data out
+				LPC_GPIO2->FIOSET = P2_CLOCK;
 				LPC_GPIO2->FIOCLR = P2_CLOCK;
 
 			}
 		}
 
-		LPC_GPIO2->FIOSET = P2_STROBE;							// activate new data
+		// activate new data
+		LPC_GPIO2->FIOSET = P2_STROBE;
 		LPC_GPIO2->FIOCLR = P2_STROBE;
 
 
