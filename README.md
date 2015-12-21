@@ -4,7 +4,7 @@
 ## Setup
 The board uses an LPC176x processor. Development is done using NXP's [LPCXpresso IDE](https://www.lpcware.com/lpcxpresso) with its integrated toolchain.
 
-In the IDE, make sure the **CMSISv2p00_LPC17xx** "example" project is open. Otherwise the compiler will find unresolvable includes.
+In the IDE, make sure the **CMSISv2p00_LPC17xx** "example" project is open. (Import it via the *import example* button from `/opt/lpcxpresso/lpcxpresso/Examples/Legacy/NXP/LPC1000/LPC17xx/LPCXpresso176x_cmsis2.zip`) Otherwise the compiler will find unresolvable includes.
 
 ## Run
 Flash the program using the integrated debugger.
